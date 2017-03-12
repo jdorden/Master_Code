@@ -1,10 +1,8 @@
-
-
 /*
-  Testing RC Connection
-  4/12/15 by Brian Patton
-  Captures the Pulse signal from a RC controller
-  Feel free to do whatever you want with this code example
+  RC Base
+  3/12/17 by Mike Fuerst and John Van Orden 
+  (Based on Code by Brian Patton)
+  Allows for driving the test robot using an RC controller
 */
 #include <Servo.h>
 
@@ -18,13 +16,6 @@ int Rwheel;
 Servo R_Servo;  // Servo DC Motor Driver (Designed for RC cars)Servo R_Servo;  // Servo DC Motor Driver (Designed for RC cars)
 Servo L_Servo;  // Servo DC Motor Driver (Designed for RC cars)Servo L_Servo;  // Servo DC Motor Driver (Designed for RC cars)
 
-
-int L_SharpValue; // Variable to hold Left Sharp data
-int C_SharpValue; // Variable to hold Center Sharp data
-int R_SharpValue; // Variable to hold Right Sharp data
-const int L_SharpPin = A9; //Pin connecting the sharp
-const int C_SharpPin = A8; //Pin connecting the sharp
-const int R_SharpPin = A7; //Pin connecting the sharp
 
 //**************************************************************
 //*****************  Setup  ************************************
@@ -52,12 +43,12 @@ void setup() {
   Serial.begin(9600);
 }
 
-//********************** MixLimits() ***************************
+//********************** mixLimits() ***************************
 //*******  Make sure values never exceed ranges  ***************
 //******  For most all servos and like controlers  *************
 //****   control must fall between 1000uS and 2000uS  **********
 //**************************************************************
-void SetLimits() {
+void setLimits() {
   if (Rwheel < 1000) {// Can be set to a value you don't wish to exceed
     Rwheel = 1000;    // to adjust maximums for your own robot
   }
@@ -73,57 +64,50 @@ void SetLimits() {
   pulseMotors();
   //L_Servo.writeMicroseconds(Lwheel);
   //R_Servo.writeMicroseconds(Rwheel);
-  //  PrintWheelCalcs(); //REMEMBER: printing values slows reaction times
+  //  printWheelCalcs(); //REMEMBER: printing values slows reaction times
 }
 
 
-//*****************  PrintWheelCalcs()  ************************
+//*****************  printWheelCalcs()  ************************
 //*******  Prints calculated wheel output values  **************
 //**************************************************************
-void PrintWheelCalcs() {
+void printWheelCalcs() {
  Serial.print("Lwheel = ");
  Serial.println(Lwheel);
  Serial.print("Rwheel = ");
  Serial.println(Rwheel);
- Serial.print("L_Proximity Sensor = ");
- Serial.println(L_SharpValue);
- Serial.print("C_Light Sensor = ");
- Serial.println(C_SharpValue);
- Serial.println(" ");
 }
-//********************  TestWheels()  **************************
+
+
+//**********************  printChannels()  ***************************
+//***  Simply print the collected RC values for diagnostics  ***
+//**************************************************************
+void printChannels()
+{ // print out the values you read in:
+  Serial.println(" RC Control Mode ");
+  Serial.print("Value Ch1 = ");
+  Serial.println(Ch1);
+  Serial.print("Value Ch2 = ");
+  Serial.println(Ch2);
+}
+
+
+//********************  testWheels()  **************************
 //*  Direct call to Servos to test wheel speed and direction  **
 //**************************************************************
-void TestWheels() {
+void testWheels() {
  L_Servo.writeMicroseconds(1500); // 1000-2000, 1500 should be stop
  R_Servo.writeMicroseconds(1500); // 1000-2000, 1500 should be stop
 }
-//*******************  DriveServosRC()  ************************
-//******  Use the value collected from Ch1 and Ch2  ************
-//******  on a single stick to relatively calculate  ***********
-//****  speed and direction of two servo driven wheels *********
-//**************************************************************
-void DriveServosRC()
-{
-  if (Ch2 <= 1500) {
-    Rwheel = Ch1 + Ch2 - 1500;
-    Lwheel = Ch1 - Ch2 + 1500;
-    SetLimits();
-  }
-  if (Ch2 > 1500) {
-    int Ch1_mod = map(Ch1, 1000, 2000, 2000, 1000); // Invert the Ch1 axis to keep the math similar
-    Rwheel = Ch1_mod + Ch2 - 1500;
-    Lwheel = Ch1_mod - Ch2 + 1500;
-    SetLimits();
-  }
-}
+
+
 //*******************   pulseMotors  ***************************
-//pulses either mapped or direct signals generated from Mixlimits
+//pulses either mapped or direct signals generated from mixLimits
 //**************************************************************
 void pulseMotors() {
   //un-comment the next two line to drive the wheels directly with the MaxLimits Set
-//    L_Servo.writeMicroseconds(Lwheel);
-//    R_Servo.writeMicroseconds(Rwheel);
+  //L_Servo.writeMicroseconds(Lwheel);
+  //R_Servo.writeMicroseconds(Rwheel);
 
   //un-comment the next two to map a control range.
   //*** Take the standard range of 1000 to 2000 and frame it to your own minimum and maximum
@@ -134,35 +118,28 @@ void pulseMotors() {
   R_Servo.writeMicroseconds(Rwheel);
 
   // un-comment this line do display the value being sent to the motors
-//  PrintWheelCalcs(); //REMEMBER: printing values slows reaction times
-}
-//**********************  PrintRC()  ***************************
-//***  Simply print the collected RC values for diagnostics  ***
-//**************************************************************
-void PrintRC()
-{ // print out the values you read in:
-  Serial.println(" RC Control Mode ");
-  Serial.print("Value Ch1 = ");
-  Serial.println(Ch1);
-  Serial.print("Value Ch2 = ");
-  Serial.println(Ch2);
-  //Serial.print("Value Ch3 = ");
-  //Serial.println(Ch3);
-  //Serial.print("Value Ch4 = ");
-  //Serial.println(Ch4);
-  //Serial.print("Control = ");
-  //Serial.println(Ch5);
-  Serial.print("L_Proximity Sensor = ");
-  Serial.println(L_SharpValue);
-  Serial.print("C_Light Sensor = ");
-  Serial.println(C_SharpValue);
-  Serial.println(" ");
-  //Serial.print("Value Ch6 = ");
-  //Serial.println(Ch6);
-  //Serial.println(" ");
-  //delay(1000);
+  // printWheelCalcs(); //REMEMBER: printing values slows reaction times
 }
 
+//*******************  driveServosRC()  ************************
+//******  Use the value collected from Ch1 and Ch2  ************
+//******  on a single stick to relatively calculate  ***********
+//****  speed and direction of two servo driven wheels *********
+//**************************************************************
+void driveServosRC()
+{
+  if (Ch2 <= 1500) {
+    Rwheel = Ch1 + Ch2 - 1500;
+    Lwheel = Ch1 - Ch2 + 1500;
+    setLimits();
+  }
+  if (Ch2 > 1500) {
+    int Ch1_mod = map(Ch1, 1000, 2000, 2000, 1000); // Invert the Ch1 axis to keep the math similar
+    Rwheel = Ch1_mod + Ch2 - 1500;
+    Lwheel = Ch1_mod - Ch2 + 1500;
+    setLimits();
+  }
+}
 
 
 //************************  loop()  ****************************
@@ -172,18 +149,6 @@ void loop()
 {
   Ch1 = pulseIn(12, HIGH, 21000); // Capture pulse width on Channel 1
   Ch2 = pulseIn(11, HIGH, 21000); // Capture pulse width on Channel 2
-  //      Ch3 = pulseIn(10, HIGH, 21000);  // Capture pulse width on Channel 3
-  //      Ch4 = pulseIn(9, HIGH, 21000);  // Capture pulse width on Channel 4
-  //      Ch5 = pulseIn(8, HIGH, 21000); // Capture pulse width on Channel 5
-  //      Ch6 = pulseIn(7, HIGH, 21000); // Capture pulse width on Channel 6
-   // L_SharpValue = analogRead(L_SharpPin); //Read the value of the sharp sensor
-   // C_SharpValue = analogRead(C_SharpPin); //Read the value of the sharp sensor
-    //R_SharpValue = analogRead(R_SharpPin); //Read the value of the sharp sensor
-    //TestWheels();
-  DriveServosRC(); // Drive Motors under RC control
-  //PrintRC(); //Print Values for RC Mode Diagnostics
-  
-  //LightRead();
- //PrintWheelCalcs();
+  //testWheels();
+  driveServosRC(); // Drive Motors under RC control
 }
-

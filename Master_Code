@@ -17,6 +17,16 @@ int Rwheel;
 int WallMotor;
 int SWITCH = 1250;
 
+// Create variables to hold Hall Effect inputs and RPM calcs
+const int HES_Pin_L = 14;
+const int HES_Pin_R = 15;
+volatile byte half_revolutions_L;
+unsigned int rpm_L;
+unsigned long timeold_L;
+volatile byte half_revolutions_R;
+unsigned int rpm_R;
+unsigned long timeold_R;
+
 // Create Servo Objects as defined in the Servo.h files
 Servo R_Servo;  // Servo DC Motor Driver (Designed for RC cars)Servo R_Servo;  // Servo DC Motor Driver (Designed for RC cars)
 Servo L_Servo;  // Servo DC Motor Driver (Designed for RC cars)Servo L_Servo;  // Servo DC Motor Driver (Designed for RC cars)
@@ -46,6 +56,7 @@ void setup() {
   L_Servo.attach(3); //Pin 3
   R_Servo.attach(2); //Pin 2
   W_Servo.attach(1); //Pin 1
+  
   //Flash the LED on and Off 10x Start
   for (int i = 0; i < 10; i++) {
     digitalWrite(13, HIGH);
@@ -55,6 +66,16 @@ void setup() {
   }
   //Flash the LED on and Off 10x End
   Serial.begin(9600);
+
+  //Hall Effect Setup
+  attachInterrupt(digitalPinToInterrupt(HES_Pin_L), magnet_detect_L, RISING);
+  attachInterrupt(digitalPinToInterrupt(HES_Pin_R), magnet_detect_R, RISING);
+  half_revolutions_L = 0;
+  rpm_L = 0;
+  timeold_L = 0;
+  half_revolutions_R = 0;
+  rpm_R = 0;
+  timeold_R = 0;
 }
 
 //********************** setLimits() ***************************
@@ -135,6 +156,43 @@ void testWheels() {
  R_Servo.writeMicroseconds(1500); // 1000-2000, 1500 should be stop
 }
 
+//*******************   magnet_detect_L  ***************************
+//Runs when magnet is detected on left wheel
+//**************************************************************
+void magnet_detect_L()
+ {
+  half_revolutions_L++;
+  Serial.println("detect_L");
+ }
+
+ //*******************   magnet_detect_R  ***************************
+//Run when magnet is detected on right wheel
+//**************************************************************
+ void magnet_detect_R()
+ {
+  half_revolutions_R++;
+  Serial.println("detect_R");
+ }
+
+ //*******************   RPM_Calc  ***************************
+//Tracks the m/s of the left and right wheel
+//**************************************************************
+ void RPM_Calc()
+ {
+  if (half_revolutions_L >= 3) { 
+     rpm_L = 60*1000/(millis() - timeold_L)*half_revolutions_L;
+     timeold_L = millis();
+     half_revolutions_L = 0;
+     Serial.println(rpm_L*0.01064,3);
+   }
+
+    if (half_revolutions_R >= 3) { 
+     rpm_R = 60*1000/(millis() - timeold_R)*half_revolutions_R;
+     timeold_R = millis();
+     half_revolutions_R = 0;
+     Serial.println(rpm_R*0.01064,3);
+   }
+ }
 
 //*******************   pulseMotors  ***************************
 //pulses either mapped or direct signals generated from mixLimits
@@ -287,21 +345,22 @@ void navToLight() {
 //**************************************************************
 void loop()
 {
-  
+
   Ch1 = pulseIn(12, HIGH, 21000); // Capture pulse width on Channel 1
   Ch2 = pulseIn(11, HIGH, 21000); // Capture pulse width on Channel 2
   Ch3 = pulseIn(10, HIGH, 21000); // Capture pulse width on Channel 3
  // Ch4 = pulseIn(9, HIGH, 21000); // Capture pulse width on Channel 4
   Ch5 = pulseIn(8, HIGH, 21000); // Capture pulse width on Channel 5
   Ch6 = pulseIn(7, HIGH, 21000); // Capture pulse width on Channel 6
+  
   //printWheelCalcs();
-  printChannels();
+  //printChannels();
+  RPM_Calc();
    
 //RC MODE and Medkit Arm Pickup(UP UP on Controller)
 if (Ch5 > SWITCH && Ch6 < SWITCH) { 
   WallMotor = Ch3;
   driveServosRC(); 
-   
 }
 
 //CLimb Wall (UP DOWN on Controller)

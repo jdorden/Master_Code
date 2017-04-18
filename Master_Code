@@ -85,6 +85,9 @@ void setLimits() {
   if (WallMotor > 1350 && WallMotor < 1650){
     WallMotor = 1500;
   }
+   if (WallMotor > 1650){
+    WallMotor = 2000;
+  }
   pulseMotors();
   //L_Servo.writeMicroseconds(Lwheel);
   //R_Servo.writeMicroseconds(Rwheel);
@@ -151,8 +154,8 @@ void pulseMotors() {
   L_Servo.writeMicroseconds(Lwheel);
   R_Servo.writeMicroseconds(Rwheel);
   W_Servo.writeMicroseconds(WallMotor);
+
   
-d9gkhijyfcxvu 
   // un-comment this line do display the value being sent to the motors
   // printWheelCalcs(); //REMEMBER: printing values slows reaction times
 }
@@ -292,12 +295,13 @@ void loop()
   Ch5 = pulseIn(8, HIGH, 21000); // Capture pulse width on Channel 5
   Ch6 = pulseIn(7, HIGH, 21000); // Capture pulse width on Channel 6
   //printWheelCalcs();
-   printChannels();
+  printChannels();
    
 //RC MODE and Medkit Arm Pickup(UP UP on Controller)
 if (Ch5 > SWITCH && Ch6 < SWITCH) { 
   WallMotor = Ch3;
-  driveServosRC();
+  driveServosRC(); 
+   
 }
 
 //CLimb Wall (UP DOWN on Controller)

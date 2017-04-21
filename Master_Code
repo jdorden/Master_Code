@@ -15,6 +15,7 @@ int CalcHold;        //Variable to temp hold calculations for steering stick cor
 int Lwheel;
 int Rwheel;
 int WallMotor;
+int ArmMotor;
 int SWITCH = 1250;
 
 // Create variables to hold Hall Effect inputs and RPM calcs
@@ -31,6 +32,7 @@ unsigned long timeold_R;
 Servo R_Servo;  // Servo DC Motor Driver (Designed for RC cars)Servo R_Servo;  // Servo DC Motor Driver (Designed for RC cars)
 Servo L_Servo;  // Servo DC Motor Driver (Designed for RC cars)Servo L_Servo;  // Servo DC Motor Driver (Designed for RC cars)
 Servo W_Servo; //Servo DC Motor Driver for the wall arm
+Servo A_Servo; //Motor for control of the medkit arm
 
 int L_PhotoValue; // Variable to hold Left photo data
 int R_PhotoValue; // Variable to hold Right photo data
@@ -56,6 +58,7 @@ void setup() {
   L_Servo.attach(3); //Pin 3
   R_Servo.attach(2); //Pin 2
   W_Servo.attach(1); //Pin 1
+  A_Servo.attach(4); //Pin 4
   
   //Flash the LED on and Off 10x Start
   for (int i = 0; i < 10; i++) {
@@ -97,22 +100,10 @@ void setLimits() {
   if (Lwheel > 2000) {// Can be set to a value you don't wish to exceed
     Lwheel = 2000;    // to adjust maximums for your own robot
   }
-  if (WallMotor < 1000) {// Can be set to a value you don't wish to exceed
-    Lwheel = 1000;    // to adjust maximums for your own robot
-  }
-  if (WallMotor > 2000) {// Can be set to a value you don't wish to exceed
-    Lwheel = 2000;    // to adjust maximums for your own robot
-  }
-  if (WallMotor > 1350 && WallMotor < 1650){
-    WallMotor = 1500;
-  }
-   if (WallMotor > 1650){
-    WallMotor = 2000;
-  }
   pulseMotors();
   //L_Servo.writeMicroseconds(Lwheel);
   //R_Servo.writeMicroseconds(Rwheel);
-  //  printWheelCalcs(); //REMEMBER: printing values slows reaction times
+  //printWheelCalcs(); //REMEMBER: printing values slows reaction times
 }
 
 
@@ -211,7 +202,7 @@ void pulseMotors() {
  
   L_Servo.writeMicroseconds(Lwheel);
   R_Servo.writeMicroseconds(Rwheel);
-  W_Servo.writeMicroseconds(WallMotor);
+  //W_Servo.writeMicroseconds(WallMotor); //UNCOMMENT FOR WALL CONTROL
 
   
   // un-comment this line do display the value being sent to the motors
@@ -296,17 +287,49 @@ void driveRight(int d, int t) {
   pulseMotors();
 }
 
+//*****************  armControl()  ************************
+//*******  Move the medkit arm up and down **************
+//**************************************************************
+void armControl(){
+  ArmMotor = Ch4;
+  A_Servo.writeMicroseconds(ArmMotor);
+  
+}
+
+//*****************  wallControl()  ************************
+//*******  Move the medkit arm up and down **************
+//**************************************************************
+void wallControl(){
+  WallMotor = Ch3;
+  if (WallMotor < 1000) {// Can be set to a value you don't wish to exceed
+    WallMotor = 1000;  
+  }
+  if (WallMotor > 1350 && WallMotor < 1650){
+    WallMotor = 1500;
+  }
+   if (WallMotor > 1650){
+    WallMotor = 1575;
+  }
+  if (WallMotor < 1350){
+    WallMotor = map(WallMotor, 1000, 1350, 1000, 1500);
+  }
+  
+  W_Servo.writeMicroseconds(WallMotor);
+  
+}
+
+
 //*****************  navToLight()  ************************
 //*******  Find light and drive to it until you are 1ft away **************
 //**************************************************************
 void navToLight() {
  int const DELTA = 300; //If -DELTA<Delta<DELTA you are looking straight at the light or at ambient
-  int AMB = 800; //Sensor is looking at ambient if reading this or higher
+ int AMB = 800; //Sensor is looking at ambient if reading this or higher
 
-  L_PhotoValue = analogRead(L_PhotoPin); //Read the value of the photo sensor
-  R_PhotoValue = analogRead(R_PhotoPin); //Read the value of the photo sensor
-  SharpValue = analogRead(SharpPin);
-  int Delta = L_PhotoValue - R_PhotoValue;
+ L_PhotoValue = analogRead(L_PhotoPin); //Read the value of the photo sensor
+ R_PhotoValue = analogRead(R_PhotoPin); //Read the value of the photo sensor
+ SharpValue = analogRead(SharpPin);
+ int Delta = L_PhotoValue - R_PhotoValue;
 
   //You are one foot away
   if(SharpValue > 200){
@@ -348,8 +371,8 @@ void loop()
 
   Ch1 = pulseIn(12, HIGH, 21000); // Capture pulse width on Channel 1
   Ch2 = pulseIn(11, HIGH, 21000); // Capture pulse width on Channel 2
-  Ch3 = pulseIn(10, HIGH, 21000); // Capture pulse width on Channel 3
- // Ch4 = pulseIn(9, HIGH, 21000); // Capture pulse width on Channel 4
+  Ch3 = pulseIn(10, HIGH, 21000); // Capture pulse width on Channel 3 UNCOMMENT FOR WALL CONTROL
+  Ch4 = pulseIn(9, HIGH, 21000); // Capture pulse width on Channel 4
   Ch5 = pulseIn(8, HIGH, 21000); // Capture pulse width on Channel 5
   Ch6 = pulseIn(7, HIGH, 21000); // Capture pulse width on Channel 6
   
@@ -359,16 +382,17 @@ void loop()
    
 //RC MODE and Medkit Arm Pickup(UP UP on Controller)
 if (Ch5 > SWITCH && Ch6 < SWITCH) { 
-  WallMotor = Ch3;
   driveServosRC(); 
+  armControl();
 }
 
-//CLimb Wall (UP DOWN on Controller)
+//CLimb Wall (DOWN UP on Controller)
 if (Ch5 > SWITCH && Ch6 > SWITCH) {
-  brake(); //PLACEHOLDER
+  driveServosRC(); 
+  wallControl();
 }
 
-//Nav Chute (Down UP on Controller)
+//Nav Chute (UP DOWN on Controller)
 if (Ch5 < SWITCH && Ch6 < SWITCH) {
   brake(); //PLACEHOLDER
 }

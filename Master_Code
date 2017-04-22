@@ -1,15 +1,15 @@
 /*
   RC Base
-  3/12/17 by Mike Fuerst and John Van Orden 
+  4/21/17 by Mike Fuerst and John Van Orden 
   (Based on Code by Brian Patton)
-  Allows for driving the test robot using an RC controller
+  Allows for driving the test robot using an RC controller, manual wall traversal, manual medkit pickup, and full readout of sensors
 */
 
 /*To do on new robot: Map RC control to slow down open-loop driving. Change values and functions that control autonomous driving
 to match new mapping (probably increase these values).*/
 #include <Servo.h>
 
-// Create Variables to hold the Receiver signals
+// Create Variables to hold the Receiver signals and motor values
 int Ch1, Ch2, Ch3, Ch4, Ch5, Ch6;
 int CalcHold;        //Variable to temp hold calculations for steering stick corections
 int Lwheel;
@@ -29,17 +29,22 @@ unsigned int rpm_R;
 unsigned long timeold_R;
 
 // Create Servo Objects as defined in the Servo.h files
-Servo R_Servo;  // Servo DC Motor Driver (Designed for RC cars)Servo R_Servo;  // Servo DC Motor Driver (Designed for RC cars)
-Servo L_Servo;  // Servo DC Motor Driver (Designed for RC cars)Servo L_Servo;  // Servo DC Motor Driver (Designed for RC cars)
+Servo R_Servo;  // Servo DC Motor Driver (Designed for RC cars)
+Servo L_Servo;  // Servo DC Motor Driver (Designed for RC cars) 
 Servo W_Servo; //Servo DC Motor Driver for the wall arm
 Servo A_Servo; //Motor for control of the medkit arm
 
-int L_PhotoValue; // Variable to hold Left photo data
-int R_PhotoValue; // Variable to hold Right photo data
-int SharpValue; //Variable to hold prox sensor data
+//Create variables to hold sensor data
+int L_PhotoValue; // Variable to hold LEFT photo data
+int R_PhotoValue; // Variable to hold RIGHT photo data
+int C_ProxValue; //Variable to hold CENTER prox sensor data
+int L_ProxValue; //Variable to hold LEFT prox sensor data
+int R_ProxValue; //Variable to hold RIGHT prox sensor data
 const int L_PhotoPin = A9; //Pin connecting the left photo
 const int R_PhotoPin = A8; //Pin connecting the right photo
-const int SharpPin = A7; //Pin connecting the sharp sensor
+const int C_ProxPin = A7; //Pin connecting the center sharp sensor
+const int L_ProxPin = A6; //Pin connecting the left sharp sensor
+const int R_ProxPin = A5; //Pin connecting the right sharp sensor
 
 
 //**************************************************************
@@ -137,6 +142,25 @@ void printChannels()
   Serial.print("Value Ch6 = ");
   Serial.println(Ch6);
 }
+
+//**********************  printSensors()  ***************************
+//***  Simply print the collected RC values for diagnostics  ***
+//**************************************************************
+void printSensors()
+{ // print out the values you read in:
+  Serial.println(" Sensor Read Out ");
+  Serial.print("L_PhotoValue = ");
+  Serial.println(L_PhotoValue);
+  Serial.print("R_PhotoValue = ");
+  Serial.println(R_PhotoValue);
+  Serial.print("C_ProxValue = ");
+  Serial.println(C_ProxValue);
+  Serial.print("L_ProxValue = ");
+  Serial.println(L_ProxValue);
+  Serial.print("R_ProxValue = ");
+  Serial.println(R_ProxValue);
+}
+
 
 
 //********************  testWheels()  **************************
@@ -325,14 +349,10 @@ void wallControl(){
 void navToLight() {
  int const DELTA = 300; //If -DELTA<Delta<DELTA you are looking straight at the light or at ambient
  int AMB = 800; //Sensor is looking at ambient if reading this or higher
-
- L_PhotoValue = analogRead(L_PhotoPin); //Read the value of the photo sensor
- R_PhotoValue = analogRead(R_PhotoPin); //Read the value of the photo sensor
- SharpValue = analogRead(SharpPin);
  int Delta = L_PhotoValue - R_PhotoValue;
 
   //You are one foot away
-  if(SharpValue > 200){
+  if(C_ProxValue > 200){
     brake();
     return;
   }
@@ -343,7 +363,7 @@ void navToLight() {
   }
   
     //Too close to box or obstacle - back up
-  if(SharpValue >= 400){
+  if(C_ProxValue >= 400){
     straightRev(100); 
   }
   
@@ -369,16 +389,25 @@ void navToLight() {
 void loop()
 {
 
-  Ch1 = pulseIn(12, HIGH, 21000); // Capture pulse width on Channel 1
-  Ch2 = pulseIn(11, HIGH, 21000); // Capture pulse width on Channel 2
-  Ch3 = pulseIn(10, HIGH, 21000); // Capture pulse width on Channel 3 UNCOMMENT FOR WALL CONTROL
-  Ch4 = pulseIn(9, HIGH, 21000); // Capture pulse width on Channel 4
-  Ch5 = pulseIn(8, HIGH, 21000); // Capture pulse width on Channel 5
-  Ch6 = pulseIn(7, HIGH, 21000); // Capture pulse width on Channel 6
+ Ch1 = pulseIn(12, HIGH, 21000); // Capture pulse width on Channel 1
+ Ch2 = pulseIn(11, HIGH, 21000); // Capture pulse width on Channel 2
+ Ch3 = pulseIn(10, HIGH, 21000); // Capture pulse width on Channel 3
+ Ch4 = pulseIn(9, HIGH, 21000);  // Capture pulse width on Channel 4
+ Ch5 = pulseIn(8, HIGH, 21000);  // Capture pulse width on Channel 5
+ Ch6 = pulseIn(7, HIGH, 21000);  // Capture pulse width on Channel 6
+
   
-  //printWheelCalcs();
-  //printChannels();
-  RPM_Calc();
+ L_PhotoValue = analogRead(L_PhotoPin); //Read the value of the left photo sensor
+ R_PhotoValue = analogRead(R_PhotoPin); //Read the value of the right photo sensor
+ C_ProxValue = analogRead(C_ProxPin);   //Read the value of the center prox sensor
+ L_ProxValue = analogRead(L_ProxPin);   //Read the value of the left prox sensor
+ R_ProxValue = analogRead(R_ProxPin);   //Read the value of the right prox sensor
+
+//PRINTING STATEMENTS FOR DEBUGGING  
+//printWheelCalcs();
+//printChannels();
+//RPM_Calc();
+  printSensors();
    
 //RC MODE and Medkit Arm Pickup(UP UP on Controller)
 if (Ch5 > SWITCH && Ch6 < SWITCH) { 

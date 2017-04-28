@@ -48,8 +48,8 @@ const int R_ProxPin = A5; //Pin connecting the right sharp sensor
 
 unsigned long timehold;
 int const AUTO_MAX = 200; //The maximum value that is passed into autodrive for this algorithm
-int const VEER_R = 50; //The difference between wheel speeds when turning - decreasing drives more straight
-int const VEER_L = 250;
+int const VEER_R = 100; //The difference between wheel speeds when turning - decreasing drives more straight
+int const VEER_L = 200;
 
 bool WE_PASSED_THE_CLASS_OR_AT_LEAST_DELIVERED_THE_MEDKIT = false;
 
@@ -353,7 +353,7 @@ void navToLight() {
 
       //Too close to box or obstacle - back up
   if(C_ProxValue >= 700){
-    autoDrive(-AUTO_MAX*1.5,-AUTO_MAX*1.5); //Reverse is weaker than forwards
+    autoDrive(-AUTO_MAX,-AUTO_MAX); //Reverse is weaker than forwards
     return;
   }
 
@@ -382,10 +382,10 @@ void navToLight() {
 //*******  Navigate through chute **************
 //**************************************************************
 void chuteNav() {
-  if(L_ProxValue > 450){
-    pivot("R");
-  }else if(R_ProxValue > 450){
+if(R_ProxValue > 400){
     pivot("L");
+  }else if(R_ProxValue < 200){
+    pivot("R");
   } else{
     autoDrive(AUTO_MAX*.5,AUTO_MAX*.5);
   }
@@ -417,6 +417,15 @@ void loop()
 //RPM_Calc();
 //printSensors();
 
+  int wallDifference = L_ProxValue-R_ProxValue;
+  Serial.print("Diff: ");
+  Serial.println(wallDifference);
+  Serial.print("Left: ");
+  Serial.println(L_ProxValue);
+  Serial.print("Right: ");
+  Serial.println(R_ProxValue);
+  delay(100);
+
 
 //The medkit has been delivered
 if(WE_PASSED_THE_CLASS_OR_AT_LEAST_DELIVERED_THE_MEDKIT){
@@ -435,6 +444,7 @@ if(WE_PASSED_THE_CLASS_OR_AT_LEAST_DELIVERED_THE_MEDKIT){
 if (Ch5 > SWITCH && Ch6 < SWITCH) { 
   driveServosRC(); 
   armControl();
+  
 }
 
 //CLimb Wall (DOWN UP on Controller)

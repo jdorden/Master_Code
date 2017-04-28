@@ -2,7 +2,7 @@
   RC Base
   4/21/17 by Mike Fuerst and John Van Orden 
   (Based on Code by Brian Patton)
-  Allows for driving the test robot using an RC controller, manual wall traversal, manual medkit pickup, and full readout of sensors
+  Allows for driving the test robot using an RC controller
 */
 
 /*To do on new robot: Map RC control to slow down open-loop driving. Change values and functions that control autonomous driving
@@ -12,19 +12,19 @@ to match new mapping (probably increase these values).*/
 // Create Variables to hold the Receiver signals and motor values
 int Ch1, Ch2, Ch3, Ch4, Ch5, Ch6;
 int CalcHold;        //Variable to temp hold calculations for steering stick corections
-int Lwheel;
 int Rwheel;
+int Lwheel;
 int WallMotor;
 int ArmMotor;
-int SWITCH = 1250;
+int const SWITCH = 1250;
 
 // Create variables to hold Hall Effect inputs and RPM calcs
 const int HES_Pin_L = 14;
 const int HES_Pin_R = 15;
-volatile byte half_revolutions_L;
+volatile byte revolutions_L;
 unsigned int rpm_L;
 unsigned long timeold_L;
-volatile byte half_revolutions_R;
+volatile byte revolutions_R;
 unsigned int rpm_R;
 unsigned long timeold_R;
 
@@ -46,6 +46,12 @@ const int C_ProxPin = A7; //Pin connecting the center sharp sensor
 const int L_ProxPin = A6; //Pin connecting the left sharp sensor
 const int R_ProxPin = A5; //Pin connecting the right sharp sensor
 
+unsigned long timehold;
+int const AUTO_MAX = 200; //The maximum value that is passed into autodrive for this algorithm
+int const VEER_R = 50; //The difference between wheel speeds when turning - decreasing drives more straight
+int const VEER_L = 250;
+
+bool WE_PASSED_THE_CLASS_OR_AT_LEAST_DELIVERED_THE_MEDKIT = false;
 
 //**************************************************************
 //*****************  Setup  ************************************
@@ -78,10 +84,10 @@ void setup() {
   //Hall Effect Setup
   attachInterrupt(digitalPinToInterrupt(HES_Pin_L), magnet_detect_L, RISING);
   attachInterrupt(digitalPinToInterrupt(HES_Pin_R), magnet_detect_R, RISING);
-  half_revolutions_L = 0;
+  revolutions_L = 0;
   rpm_L = 0;
   timeold_L = 0;
-  half_revolutions_R = 0;
+  revolutions_R = 0;
   rpm_R = 0;
   timeold_R = 0;
 }
@@ -93,22 +99,19 @@ void setup() {
 //**************************************************************
 void setLimits() {
   
-  if (Rwheel < 1000) {// Can be set to a value you don't wish to exceed
-    Rwheel = 1000;    // to adjust maximums for your own robot
-  }
-  if (Rwheel > 2000) {// Can be set to a value you don't wish to exceed
-    Rwheel = 2000;    // to adjust maximums for your own robot
-  }
   if (Lwheel < 1000) {// Can be set to a value you don't wish to exceed
     Lwheel = 1000;    // to adjust maximums for your own robot
   }
   if (Lwheel > 2000) {// Can be set to a value you don't wish to exceed
     Lwheel = 2000;    // to adjust maximums for your own robot
   }
+  if (Rwheel < 1000) {// Can be set to a value you don't wish to exceed
+    Rwheel = 1000;    // to adjust maximums for your own robot
+  }
+  if (Rwheel > 2000) {// Can be set to a value you don't wish to exceed
+    Rwheel = 2000;    // to adjust maximums for your own robot
+  }
   pulseMotors();
-  //L_Servo.writeMicroseconds(Lwheel);
-  //R_Servo.writeMicroseconds(Rwheel);
-  //printWheelCalcs(); //REMEMBER: printing values slows reaction times
 }
 
 
@@ -116,10 +119,10 @@ void setLimits() {
 //*******  Prints calculated wheel output values  **************
 //**************************************************************
 void printWheelCalcs() {
- Serial.print("Lwheel = ");
- Serial.println(Lwheel);
  Serial.print("Rwheel = ");
  Serial.println(Rwheel);
+ Serial.print("Lwheel = ");
+ Serial.println(Lwheel);
 }
 
 
@@ -167,8 +170,8 @@ void printSensors()
 //*  Direct call to Servos to test wheel speed and direction  **
 //**************************************************************
 void testWheels() {
- L_Servo.writeMicroseconds(1500); // 1000-2000, 1500 should be stop
- R_Servo.writeMicroseconds(1500); // 1000-2000, 1500 should be stop
+ L_Servo.writeMicroseconds(1500); // 1000-2000, 1500 should be stop <1500 is reverse
+ R_Servo.writeMicroseconds(1500); // 1000-2000, 1500 should be stop >1500 is reverse
 }
 
 //*******************   magnet_detect_L  ***************************
@@ -176,7 +179,7 @@ void testWheels() {
 //**************************************************************
 void magnet_detect_L()
  {
-  half_revolutions_L++;
+  revolutions_L++;
   Serial.println("detect_L");
  }
 
@@ -185,7 +188,7 @@ void magnet_detect_L()
 //**************************************************************
  void magnet_detect_R()
  {
-  half_revolutions_R++;
+  revolutions_R++;
   Serial.println("detect_R");
  }
 
@@ -194,17 +197,17 @@ void magnet_detect_L()
 //**************************************************************
  void RPM_Calc()
  {
-  if (half_revolutions_L >= 3) { 
-     rpm_L = 60*1000/(millis() - timeold_L)*half_revolutions_L;
+  if (revolutions_L >= 3) { 
+     rpm_L = 60*1000/(millis() - timeold_L)*revolutions_L;
      timeold_L = millis();
-     half_revolutions_L = 0;
+     revolutions_L = 0;
      Serial.println(rpm_L*0.01064,3);
    }
 
-    if (half_revolutions_R >= 3) { 
-     rpm_R = 60*1000/(millis() - timeold_R)*half_revolutions_R;
+    if (revolutions_R >= 3) { 
+     rpm_R = 60*1000/(millis() - timeold_R)*revolutions_R;
      timeold_R = millis();
-     half_revolutions_R = 0;
+     revolutions_R = 0;
      Serial.println(rpm_R*0.01064,3);
    }
  }
@@ -213,24 +216,14 @@ void magnet_detect_L()
 //pulses either mapped or direct signals generated from mixLimits
 //**************************************************************
 void pulseMotors() {
-  //un-comment the next two line to drive the wheels directly with the MaxLimits Set
-  //L_Servo.writeMicroseconds(Lwheel);
-  //R_Servo.writeMicroseconds(Rwheel);
 
-  //un-comment the next two to map a control range.
   //*** Take the standard range of 1000 to 2000 and frame it to your own minimum and maximum
   //*** for each wheel.
-  Lwheel = map(Lwheel, 1000, 2000, 1090, 1865); // >1500 is reverse
-  Rwheel = map(Rwheel, 1000, 2000, 1000, 2000);// >1500 is forward
-  WallMotor = map(WallMotor, 1000, 2000, 1300, 1700);//
+  Rwheel = map(Rwheel, 1000, 2000, 1290, 1665); // >1500 is reverse
+  Lwheel = map(Lwheel, 1000, 2000, 1200, 1800);// >1500 is forward
  
   L_Servo.writeMicroseconds(Lwheel);
   R_Servo.writeMicroseconds(Rwheel);
-  //W_Servo.writeMicroseconds(WallMotor); //UNCOMMENT FOR WALL CONTROL
-
-  
-  // un-comment this line do display the value being sent to the motors
-  // printWheelCalcs(); //REMEMBER: printing values slows reaction times
 }
 
 //*******************  driveServosRC()  ************************
@@ -240,75 +233,60 @@ void pulseMotors() {
 //**************************************************************
 void driveServosRC()
 { 
-  if (Ch2 <= 1500) {
-    Rwheel = Ch1 + Ch2 - 1500;
-    Lwheel = Ch1 - Ch2 + 1500;
+  if (Ch2 <= 1400) {
+    Lwheel = Ch1 + Ch2 - 1500;
+    Rwheel = Ch1 - Ch2 + 1500;
     setLimits();
   }
-  if (Ch2 > 1500) {
+  if (Ch2 > 1400) {
     int Ch1_mod = map(Ch1, 1000, 2000, 2000, 1000); // Invert the Ch1 axis to keep the math similar
-    Rwheel = Ch1_mod + Ch2 - 1500;
-    Lwheel = Ch1_mod - Ch2 + 1500;
+    Lwheel = Ch1_mod + Ch2 - 1500;
+    Rwheel = Ch1_mod - Ch2 + 1500;
     setLimits();
   }  
 }
 
 
-//*****************  spin()  ************************
-//*******  Rotate on a Dime  **************
+//*****************  autoDrive()  ************************
+//*******  +500 is full forward - -500 is full reverse  **************
+//*******  Brake: (0,0)  **************
+//*******  Full forward (500,500)  **************
+//*******  Full reverse (-500,-500)  **************
+//*******  Spin (x,-x)  **************
+//*******  Veer (x,x-y)  **************
 //**************************************************************
-void spin(int t) {
-  Lwheel = 1500+t; 
-  Rwheel = 1500+t;
-  pulseMotors();
-}
-
-
-//*****************  brake()  ************************
-//*******  Stop the robot and pause **************
-//**************************************************************
-void brake() {
-  Lwheel = 1500;
-  Rwheel = 1500;
-  pulseMotors();
-  delay(1000);
-}
-
-
-//*****************  straightFwd()  ************************
-//*******  Drive straight  **************
-//**************************************************************
-void straightFwd(int d) {
-  Lwheel = 1500-d - 20;
-  Rwheel = 1500+d -25 ;
+void autoDrive(int dL, int dR) {  
+  dR = map(dR, 500, -500, 0, 1000);
+  dL = map(dL, 500, -500, 0, 1000);
+  Rwheel = 1000+dR; 
+  Lwheel = 2000-dL; 
   pulseMotors();
 } 
 
-//*****************  straightRev()  ************************
-//*******  Drive straight  **************
+//*****************  pivot()  ************************
+//*******  Pivot L or R **************
 //**************************************************************
-void straightRev(int d) {
-  Lwheel = 1500+d;
-  Rwheel = 1500-d;
-  pulseMotors();
-}
-
-//*****************  driveLeft()  ************************
-//*******  Drive left - speed determined by d rotation by t  **************
-//**************************************************************
-void driveLeft(int d, int t) {
-  Lwheel = 1500-d -20;
-  Rwheel = 1500+d+t -27;
-  pulseMotors();
-}
-
-//*****************  driveRight()  ************************
-//*******  Drive right - speed determined by d rotation by t **************
-//**************************************************************
-void driveRight(int d, int t) {
-  Lwheel = 1500-d-t -20;
-  Rwheel = 1500+d -25;
-  pulseMotors();
+void pivot(String side){
+  if(side == "R"){
+    autoDrive(2*AUTO_MAX,-2*AUTO_MAX);
+    delay(250);
+    autoDrive(-2*AUTO_MAX,-2*AUTO_MAX);
+    delay(75);
+    autoDrive(0,0);
+    delay(250);
+  }
+  else if(side == "L"){
+     autoDrive(-2*AUTO_MAX,2*AUTO_MAX);
+    delay(250);
+    autoDrive(-2*AUTO_MAX,-2*AUTO_MAX);
+    delay(75);
+    autoDrive(0,0);
+    delay(250);
+  }
+  else
+  {
+    Serial.print("Error in pivot(): No side value given detected");
+  }
 }
 
 //*****************  armControl()  ************************
@@ -321,10 +299,10 @@ void armControl(){
 }
 
 //*****************  wallControl()  ************************
-//*******  Move the medkit arm up and down **************
+//*******  Move the wall arm up and down **************
 //**************************************************************
 void wallControl(){
-  WallMotor = Ch3;
+  WallMotor = Ch4;
   if (WallMotor < 1000) {// Can be set to a value you don't wish to exceed
     WallMotor = 1000;  
   }
@@ -348,38 +326,68 @@ void wallControl(){
 //**************************************************************
 void navToLight() {
  int const DELTA = 300; //If -DELTA<Delta<DELTA you are looking straight at the light or at ambient
- int AMB = 800; //Sensor is looking at ambient if reading this or higher
+ int const AMB = 800; //Sensor is looking at ambient if reading this or higher
  int Delta = L_PhotoValue - R_PhotoValue;
 
   //You are one foot away
-  if(C_ProxValue > 200){
-    brake();
+  if(C_ProxValue > 550 && C_ProxValue<700){
+    autoDrive(0,0);
+    if((millis()-timehold)>1000){
+      A_Servo.writeMicroseconds(2000);
+      delay(4500);
+      A_Servo.writeMicroseconds(1500);
+      delay(1000);
+      autoDrive(-AUTO_MAX*1.5,-AUTO_MAX*1.5);
+      delay(500);
+      autoDrive(0,0);
+      A_Servo.writeMicroseconds(1000);
+      delay(4000);
+  
+      WE_PASSED_THE_CLASS_OR_AT_LEAST_DELIVERED_THE_MEDKIT = true;
+    }
+    return;
+  }else{
+    A_Servo.writeMicroseconds(1500);
+    timehold = millis();
+  }
+
+      //Too close to box or obstacle - back up
+  if(C_ProxValue >= 700){
+    autoDrive(-AUTO_MAX*1.5,-AUTO_MAX*1.5); //Reverse is weaker than forwards
     return;
   }
 
-  //Light is out of range
+  //Light is out of range - rotate to find it
   if(Delta<DELTA && Delta>(-DELTA) && (L_PhotoValue>AMB || R_PhotoValue>AMB)){
-    spin(55);
+      pivot("L");
   }
-  
-    //Too close to box or obstacle - back up
-  if(C_ProxValue >= 400){
-    straightRev(100); 
-  }
-  
+ 
   //Light is straight ahead
   if(Delta<DELTA && Delta>(-DELTA) && (L_PhotoValue<AMB || R_PhotoValue<AMB)){
-    straightFwd(90);
+    autoDrive(AUTO_MAX*.5,AUTO_MAX*.5);
   }
 
   //Light is to the left
   if(Delta<(-DELTA)){
-    driveLeft(90, 5);
+    autoDrive(AUTO_MAX - VEER_L, AUTO_MAX + VEER_L);
   }
 
   //Light is to the right
   if(Delta>DELTA){
-    driveRight(90, 5);
+    autoDrive(AUTO_MAX+VEER_R, AUTO_MAX-VEER_R);
+  }
+}
+
+//*****************  chuteNav()  ************************
+//*******  Navigate through chute **************
+//**************************************************************
+void chuteNav() {
+  if(L_ProxValue > 450){
+    pivot("R");
+  }else if(R_ProxValue > 450){
+    pivot("L");
+  } else{
+    autoDrive(AUTO_MAX*.5,AUTO_MAX*.5);
   }
 }
 
@@ -401,13 +409,27 @@ void loop()
  R_PhotoValue = analogRead(R_PhotoPin); //Read the value of the right photo sensor
  C_ProxValue = analogRead(C_ProxPin);   //Read the value of the center prox sensor
  L_ProxValue = analogRead(L_ProxPin);   //Read the value of the left prox sensor
- R_ProxValue = analogRead(R_ProxPin);   //Read the value of the right prox sensor
+ R_ProxValue = analogRead(R_ProxPin);   //Read the value of the right prox  
 
 //PRINTING STATEMENTS FOR DEBUGGING  
 //printWheelCalcs();
 //printChannels();
 //RPM_Calc();
-  printSensors();
+//printSensors();
+
+
+//The medkit has been delivered
+if(WE_PASSED_THE_CLASS_OR_AT_LEAST_DELIVERED_THE_MEDKIT){
+  A_Servo.writeMicroseconds(1500);
+  W_Servo.writeMicroseconds(1500); 
+  digitalWrite(13, HIGH);
+  delay(100);
+  digitalWrite(13, LOW);
+  delay(100);
+  driveServosRC();
+  return;
+}
+
    
 //RC MODE and Medkit Arm Pickup(UP UP on Controller)
 if (Ch5 > SWITCH && Ch6 < SWITCH) { 
@@ -423,13 +445,12 @@ if (Ch5 > SWITCH && Ch6 > SWITCH) {
 
 //Nav Chute (UP DOWN on Controller)
 if (Ch5 < SWITCH && Ch6 < SWITCH) {
-  brake(); //PLACEHOLDER
+  chuteNav();
 }
 
 //Nav to Light and Medkit Drop Off (DOWN DOWN on Controller)
 if (Ch5 < SWITCH && Ch6 > SWITCH) { 
-  navToLight(); 
+  navToLight();
 }
-
- 
+  
 }

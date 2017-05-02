@@ -1,12 +1,10 @@
 /*
   RC Base
-  4/21/17 by Mike Fuerst and John Van Orden 
+  4/28/17 by Mike Fuerst and John Van Orden 
   (Based on Code by Brian Patton)
   Allows for driving the test robot using an RC controller
 */
 
-/*To do on new robot: Map RC control to slow down open-loop driving. Change values and functions that control autonomous driving
-to match new mapping (probably increase these values).*/
 #include <Servo.h>
 
 // Create Variables to hold the Receiver signals and motor values
@@ -330,18 +328,18 @@ void navToLight() {
  int Delta = L_PhotoValue - R_PhotoValue;
 
   //You are one foot away
-  if(C_ProxValue > 550 && C_ProxValue<700){
+  if(C_ProxValue > 550 && C_ProxValue<650){
     autoDrive(0,0);
     if((millis()-timehold)>1000){
       A_Servo.writeMicroseconds(2000);
-      delay(4500);
+      delay(4700);
       A_Servo.writeMicroseconds(1500);
       delay(1000);
       autoDrive(-AUTO_MAX*1.5,-AUTO_MAX*1.5);
       delay(500);
       autoDrive(0,0);
       A_Servo.writeMicroseconds(1000);
-      delay(4000);
+      delay(3500);
   
       WE_PASSED_THE_CLASS_OR_AT_LEAST_DELIVERED_THE_MEDKIT = true;
     }
@@ -352,8 +350,8 @@ void navToLight() {
   }
 
       //Too close to box or obstacle - back up
-  if(C_ProxValue >= 700){
-    autoDrive(-AUTO_MAX,-AUTO_MAX); //Reverse is weaker than forwards
+  if(C_ProxValue >= 650){
+    autoDrive(-AUTO_MAX*.7,-AUTO_MAX*1.1); //Reverse is weaker than forwards
     return;
   }
 
@@ -369,27 +367,48 @@ void navToLight() {
 
   //Light is to the left
   if(Delta<(-DELTA)){
-    autoDrive(AUTO_MAX - VEER_L, AUTO_MAX + VEER_L);
+    autoDrive(AUTO_MAX*.5 - VEER_L*.5, AUTO_MAX*.5 + VEER_L*.5);
   }
 
   //Light is to the right
   if(Delta>DELTA){
-    autoDrive(AUTO_MAX+VEER_R, AUTO_MAX-VEER_R);
+    autoDrive(AUTO_MAX*.5+VEER_R*.5, AUTO_MAX*.5-VEER_R*.5);
   }
 }
 
 //*****************  chuteNav()  ************************
 //*******  Navigate through chute **************
 //**************************************************************
+//void chuteNav() {
+//if(R_ProxValue > 400){
+//    pivot("L");
+//  }else if(R_ProxValue < 200){
+//    pivot("R");
+//  } else{
+//    autoDrive(AUTO_MAX*.5,AUTO_MAX*.5);
+//  }
+//}
+
 void chuteNav() {
-if(R_ProxValue > 400){
-    pivot("L");
+if(R_ProxValue > 250){
+    autoDrive(AUTO_MAX*.4 - VEER_L*.5, AUTO_MAX*.4 + VEER_L*.5);
   }else if(R_ProxValue < 200){
-    pivot("R");
+    autoDrive(AUTO_MAX*0+VEER_R*3, AUTO_MAX*0-VEER_R*3);
   } else{
     autoDrive(AUTO_MAX*.5,AUTO_MAX*.5);
   }
 }
+
+//void chuteNav() {
+//if(R_ProxValue > 200){
+//    autoDrive(AUTO_MAX*.4 - VEER_L*.5, AUTO_MAX*.4 + VEER_L*.5);
+//  }else if(L_ProxValue > 200){
+//    autoDrive(AUTO_MAX*0+VEER_R*3, AUTO_MAX*0-VEER_R*3);
+//  } else if(L_ProxValue < 200 && R_ProxValue < 200){
+//    autoDrive(AUTO_MAX*.5,AUTO_MAX*.5);
+//  }
+//}
+
 
 //************************  loop()  ****************************
 //**********************  Main Loop  ***************************
@@ -415,26 +434,22 @@ void loop()
 //printWheelCalcs();
 //printChannels();
 //RPM_Calc();
-//printSensors();
-
-  int wallDifference = L_ProxValue-R_ProxValue;
-  Serial.print("Diff: ");
-  Serial.println(wallDifference);
-  Serial.print("Left: ");
-  Serial.println(L_ProxValue);
-  Serial.print("Right: ");
-  Serial.println(R_ProxValue);
-  delay(100);
+printSensors();
+//
+//  int wallDifference = L_ProxValue-R_ProxValue;
+//  Serial.print("Diff: ");
+//  Serial.println(wallDifference);
+//  Serial.print("Left: ");
+//  Serial.println(L_ProxValue);
+//  Serial.print("Right: ");
+//  Serial.println(R_ProxValue);
+//  delay(100);
 
 
 //The medkit has been delivered
 if(WE_PASSED_THE_CLASS_OR_AT_LEAST_DELIVERED_THE_MEDKIT){
   A_Servo.writeMicroseconds(1500);
   W_Servo.writeMicroseconds(1500); 
-  digitalWrite(13, HIGH);
-  delay(100);
-  digitalWrite(13, LOW);
-  delay(100);
   driveServosRC();
   return;
 }
@@ -442,8 +457,9 @@ if(WE_PASSED_THE_CLASS_OR_AT_LEAST_DELIVERED_THE_MEDKIT){
    
 //RC MODE and Medkit Arm Pickup(UP UP on Controller)
 if (Ch5 > SWITCH && Ch6 < SWITCH) { 
-  driveServosRC(); 
-  armControl();
+ driveServosRC(); 
+ armControl();
+
   
 }
 

@@ -241,7 +241,7 @@ void pulseMotors() {
 
   //*** Take the standard range of 1000 to 2000 and frame it to your own minimum and maximum
   //*** for each wheel.
-  Rwheel = map(Rwheel, 1000, 2000, 1290, 1665); // >1500 is reverse
+  Rwheel = map(Rwheel, 1000, 2000, 1290, 1800); // >1500 is reverse
   Lwheel = map(Lwheel, 1000, 2000, 1200, 1800);// >1500 is forward
  
   L_Servo.writeMicroseconds(Lwheel);
@@ -358,10 +358,11 @@ void wallControl(){
     WallMotor = 1500;
   }
    if (WallMotor > 1650){
-    WallMotor = 1575;
+    WallMotor = 1750;
   }
   if (WallMotor < 1350){
-    WallMotor = map(WallMotor, 1000, 1350, 1000, 1500);
+   // WallMotor = map(WallMotor, 1000, 1350, 1000, 1500);
+   WallMotor = 1200;
   }
   
   W_Servo.writeMicroseconds(WallMotor);
